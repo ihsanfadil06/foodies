@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Makanan Nusantara – Food Log</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#faf6ef;--card:#fff;--ink:#2a2118;--mute:#7a6c5d;--tile:#efe3d0;--tile-h:#e5d2b4;--sel:#c2410c;--dot:#dc2626;--line:#e3d6c2;--done:#f6d9a8}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#1a1511;--card:#251e18;--ink:#f1e8da;--mute:#a69581;--tile:#3a2f25;--tile-h:#4a3c2e;--sel:#fb923c;--dot:#f87171;--line:#3d3228;--done:#5a4326}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*:before,*:after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 Georgia,'Times New Roman',serif}
+main{max-width:1100px;margin:0 auto;padding:20px 14px 40px}
+h1{margin:0;font-size:1.7rem}
+.sub{color:var(--mute);margin:4px 0 14px;font-family:system-ui,sans-serif;font-size:.9rem}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;font-family:system-ui,sans-serif;font-size:.85rem}
+.stats span{background:var(--card);border:1px solid var(--line);border-radius:99px;padding:4px 12px}
+.wrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.mapbox{flex:2 1 460px;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;overflow-x:auto}
+.grid{display:grid;grid-template-columns:repeat(15,minmax(46px,1fr));grid-auto-rows:54px;gap:4px;min-width:720px}
+.t{position:relative;border:0;border-radius:8px;background:var(--tile);color:var(--ink);cursor:pointer;font:600 .68rem/1.15 system-ui,sans-serif;padding:3px;text-align:center;display:flex;align-items:center;justify-content:center}
+.t:hover{background:var(--tile-h)}
+.t.has{background:var(--done)}
+.t.sel{outline:3px solid var(--sel);outline-offset:1px}
+.dot{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;background:var(--dot);color:#fff;font:700 .65rem/18px system-ui,sans-serif;text-align:center;padding:0 4px;border:2px solid var(--card);cursor:pointer}
+.panel{flex:1 1 300px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;font-family:system-ui,sans-serif}
+.panel h2{margin:0 0 2px;font:700 1.25rem Georgia,serif}
+.empty{color:var(--mute);font-size:.9rem}
+ul{list-style:none;padding:0;margin:10px 0}
+li{display:flex;gap:8px;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line)}
+li b{display:block}li small{color:var(--mute)}
+.x{border:0;background:none;color:var(--mute);cursor:pointer;font-size:1.1rem}
+input,textarea{width:100%;margin:4px 0;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:.92rem}
+.btn{background:var(--sel);color:#fff;border:0;border-radius:8px;padding:8px 14px;font:600 .9rem system-ui,sans-serif;cursor:pointer}
+.btn.alt{background:var(--tile);color:var(--ink)}
+details{margin-top:18px;font-family:system-ui,sans-serif;font-size:.85rem;color:var(--mute)}
+.geo{width:100%;height:auto;display:block}.pv{fill:var(--tile);stroke:var(--card);stroke-width:.7;cursor:pointer}.pv:hover{fill:var(--tile-h)}.pv.has{fill:var(--done)}.pv.sel{stroke:var(--sel);stroke-width:2}.gd{fill:var(--dot);stroke:var(--card);stroke-width:1.5;cursor:pointer}.gt{fill:#fff;font:700 9px system-ui,sans-serif;text-anchor:middle;pointer-events:none}.jump{margin-bottom:10px;width:auto;max-width:100%}.hint{font-size:.78rem;color:var(--mute);margin:8px 2px 0;font-family:system-ui,sans-serif}
+</style>
+</head>
+<body>
+<main>
+<h1>🍛 Makanan Nusantara</h1>
+<p class="sub">Tap a province to log the foods you’ve eaten there. Provinces with entries get a red dot.</p>
+<div class="stats"><span id="s1"></span><span id="s2"></span></div>
+<div class="wrap">
+  <div class="mapbox">
+    <select id="jump" class="jump"><option value="">Jump to a province…</option></select>
+    <div id="grid"></div>
+    <p class="hint" id="hint"></p>
+  </div>
+  <div class="panel" id="panel"></div>
+</div>
+<details><summary>Backup / restore</summary>
+  <p>Your log is saved in this browser. Copy this text to back it up, or paste a backup and press Load.</p>
+  <textarea id="bk" rows="4"></textarea>
+  <button class="btn alt" id="load">Load backup</button>
+</details>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/amcharts5/5.20.8/geodata/indonesiaLow.js"></script>
+<script>
+var P=[["Aceh","Aceh",0,0],["Sumatera Utara","Sumut",1,0],["Sumatera Barat","Sumbar",1,1],["Riau","Riau",2,1],["Kepulauan Riau","Kepri",3,1],["Jambi","Jambi",2,2],["Bengkulu","Bengkulu",1,2],["Sumatera Selatan","Sumsel",3,2],["Kep. Bangka Belitung","Babel",4,2],["Lampung","Lampung",3,3],
+["Banten","Banten",4,4],["DKI Jakarta","Jakarta",5,3],["Jawa Barat","Jabar",5,4],["Jawa Tengah","Jateng",6,4],["DI Yogyakarta","DIY",6,5],["Jawa Timur","Jatim",7,4],
+["Bali","Bali",8,4],["Nusa Tenggara Barat","NTB",9,4],["Nusa Tenggara Timur","NTT",10,4],
+["Kalimantan Barat","Kalbar",5,1],["Kalimantan Tengah","Kalteng",6,1],["Kalimantan Selatan","Kalsel",6,2],["Kalimantan Timur","Kaltim",7,1],["Kalimantan Utara","Kaltara",7,0],
+["Sulawesi Utara","Sulut",10,0],["Gorontalo","Gorontalo",9,0],["Sulawesi Tengah","Sulteng",9,1],["Sulawesi Barat","Sulbar",8,2],["Sulawesi Selatan","Sulsel",8,3],["Sulawesi Tenggara","Sultra",9,3],
+["Maluku Utara","Malut",11,1],["Maluku","Maluku",11,3],
+["Papua Barat Daya","Pap. Bar. Daya",12,1],["Papua Barat","Papua Barat",13,1],["Papua","Papua",14,1],["Papua Tengah","Pap. Tengah",13,2],["Papua Pegunungan","Pap. Pegunungan",14,2],["Papua Selatan","Pap. Selatan",14,3]];
+var data={},sel=null,KEY="idfood-v1";
+try{data=JSON.parse(localStorage.getItem(KEY)||"{}")||{}}catch(e){data={}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(data))}catch(e){}document.getElementById("bk").value=JSON.stringify(data)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var G=window.am5geodata_indonesiaLow,REAL=!!(G&&G.features&&window.d3);
+var NAMES=REAL?G.features.map(function(f){return f.properties.name}):P.map(function(p){return p[0]});
+function geoSvg(){
+  var W=900,H=340,path=d3.geoPath(d3.geoMercator().fitSize([W,H],G));
+  var out='<svg class="geo" viewBox="0 0 '+W+' '+H+'">',dots="";
+  G.features.forEach(function(f){
+    var nm=f.properties.name,n=(data[nm]||[]).length;
+    out+='<path class="pv'+(n?" has":"")+(sel===nm?" sel":"")+'" data-n="'+esc(nm)+'" d="'+path(f)+'"><title>'+esc(nm)+'</title></path>';
+    if(n){var c=path.centroid(f);if(isFinite(c[0]))dots+='<g data-n="'+esc(nm)+'"><circle class="gd" cx="'+c[0].toFixed(1)+'" cy="'+c[1].toFixed(1)+'" r="9"></circle><text class="gt" x="'+c[0].toFixed(1)+'" y="'+(c[1]+3).toFixed(1)+'">'+n+'</text></g>'}
+  });
+  return out+dots+'</svg>';
+}
+function draw(){
+  var g=document.getElementById("grid"),prov=0,foods=0;
+  NAMES.forEach(function(nm){var n=(data[nm]||[]).length;if(n){prov++;foods+=n}});
+  if(REAL){
+    g.innerHTML=geoSvg();
+    g.onclick=function(e){var t=e.target.closest("[data-n]");if(t){sel=t.getAttribute("data-n");draw()}};
+    document.getElementById("hint").textContent="Map data © amCharts. Tiny provinces hard to tap? Use the dropdown above.";
+  }else{
+    g.className="grid";g.innerHTML="";
+    P.forEach(function(p){
+      var n=(data[p[0]]||[]).length;
+      var b=document.createElement("button");
+      b.className="t"+(n?" has":"")+(sel===p[0]?" sel":"");
+      b.style.gridColumn=p[2]+1;b.style.gridRow=p[3]+1;b.title=p[0];b.textContent=p[1];
+      b.onclick=function(){sel=p[0];draw()};
+      if(n){var d=document.createElement("span");d.className="dot";d.textContent=n;
+        d.onclick=function(e){e.stopPropagation();sel=p[0];draw()};b.appendChild(d)}
+      g.appendChild(b);
+    });
+    document.getElementById("hint").textContent="The real map couldn’t load, so this is a schematic tile map.";
+  }
+  var j=document.getElementById("jump");j.value=sel||"";
+  document.getElementById("s1").textContent=prov+" / "+NAMES.length+" provinces";
+  document.getElementById("s2").textContent=foods+" foods logged";
+  panel();save();
+}
+(function(){var j=document.getElementById("jump");NAMES.slice().sort().forEach(function(n){var o=document.createElement("option");o.value=n;o.textContent=n;j.appendChild(o)});
+j.onchange=function(){if(j.value){sel=j.value;draw()}}})();
+function panel(){
+  var el=document.getElementById("panel");
+  if(!sel){el.innerHTML='<h2>Pick a province</h2><p class="empty">Click any tile on the map to see and add the foods you’ve tried there.</p>';return}
+  var list=data[sel]||[];
+  var h='<h2>'+esc(sel)+'</h2>';
+  h+=list.length?'<ul>'+list.map(function(f,i){return'<li><div><b>'+esc(f.name)+'</b>'+(f.note?'<small>'+esc(f.note)+'</small>':'')+'</div><button class="x" data-i="'+i+'" title="Remove">✕</button></li>'}).join("")+'</ul>':'<p class="empty">Nothing logged yet. Add your first dish!</p>';
+  h+='<input id="fn" placeholder="Food name (e.g. Rendang)"><textarea id="nt" rows="2" placeholder="Note: where, when, how it tasted (optional)"></textarea><button class="btn" id="add">Add food</button>';
+  el.innerHTML=h;
+  el.querySelectorAll(".x").forEach(function(b){b.onclick=function(){data[sel].splice(+b.dataset.i,1);if(!data[sel].length)delete data[sel];draw()}});
+  function add(){var n=document.getElementById("fn").value.trim();if(!n)return;(data[sel]=data[sel]||[]).push({name:n,note:document.getElementById("nt").value.trim()});draw()}
+  document.getElementById("add").onclick=add;
+  document.getElementById("fn").onkeydown=function(e){if(e.key==="Enter")add()};
+}
+document.getElementById("load").onclick=function(){
+  try{var d=JSON.parse(document.getElementById("bk").value);if(d&&typeof d==="object"){data=d;draw()}}catch(e){alert("That backup text isn’t valid.")}
+};
+draw();
+</script>
+</body>
+</html>
